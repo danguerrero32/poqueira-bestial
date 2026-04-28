@@ -1,231 +1,345 @@
-// Top sections: Nav, Hero, Pain, Value, About Dan
-const { DiamondOrnament, StarBurst, ArrowRight, PlayCircle, RidgeBackdrop, RidgeLine, SunDial } = window.SvgArt;
+// Top sections: Nav, Hero (scroll-jacking), Pain, Value, About Dan
+const { DiamondOrnament, StarBurst, ArrowRight, RidgeBackdrop, SunDial } = window.SvgArt;
 
-const Nav = () =>
-<nav style={{
-  position: "absolute", top: 0, left: 0, right: 0, zIndex: 20,
-  display: "flex", alignItems: "center", justifyContent: "space-between",
-  padding: "22px 40px",
-  color: "var(--paper)"
-}}>
-    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-      <img src="assets/keen-impact-logo.png" alt="Keen Impact" style={{ height: 32, filter: "brightness(0) invert(1) sepia(1) saturate(0) brightness(1.05)", display: "none" }} />
-      {/* Inline SVG version that picks up gold cleanly on dark */}
-      <KeenImpactLogo dark />
+// ============ FOLGAOREST LOGO ============
+const FolgaoRestLogo = () => (
+  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+    <svg width="30" height="26" viewBox="0 0 30 26" fill="none" style={{ flexShrink: 0 }}>
+      <path d="M15 2L28 24H2L15 2Z" stroke="var(--gold)" strokeWidth="1.4" fill="none" strokeLinejoin="round"/>
+      <path d="M15 9L21 24H9L15 9Z" fill="var(--gold)" opacity="0.35"/>
+    </svg>
+    <div style={{ lineHeight: 1.15 }}>
+      <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 13, fontWeight: 600, letterSpacing: "0.06em", color: "var(--paper)", textTransform: "uppercase" }}>FolgaoRest</div>
+      <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(184,153,104,0.65)" }}>by Keen Impact</div>
     </div>
-    <div style={{ display: "flex", gap: 32, fontSize: 13, letterSpacing: ".02em" }} className="nav-links">
-      <a href="#dolor" style={navLink}>Diagnóstico</a>
-      <a href="#valor" style={navLink}>Propuesta</a>
-      <a href="#modulos" style={navLink}>Módulos</a>
-      <a href="#bonus" style={navLink}>Bonus fundador</a>
-      <a href="#contacto" style={navLink}>Contacto</a>
+  </div>
+);
+
+// ============ NAV ============
+const Nav = () => (
+  <nav style={{
+    position: "absolute", top: 0, left: 0, right: 0, zIndex: 20,
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    padding: "22px 40px",
+    color: "var(--paper)",
+  }}>
+    <FolgaoRestLogo />
+    <div style={{ display: "flex", gap: 28, fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase" }} className="nav-links">
+      {["Inicio","Servicios","Consultoría","Testimonios","FAQ","Contacto"].map(item => (
+        <a key={item} href={`#${item.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"")}`} style={navLink}>{item}</a>
+      ))}
     </div>
-    <a href="#contacto" className="btn btn-ghost" style={{ padding: "12px 20px", fontSize: 13 }}>
-      Pide tu cita <ArrowRight size={14} />
-    </a>
-  </nav>;
+    <div style={{ display: "flex", border: "1px solid rgba(184,153,104,0.35)", borderRadius: 999, overflow: "hidden" }}>
+      <button style={{ ...langBtn, color: "var(--gold-2)", background: "rgba(184,153,104,0.12)" }}>ES</button>
+      <button style={{ ...langBtn, color: "rgba(244,239,230,0.4)" }}>EN</button>
+    </div>
+  </nav>
+);
 
-const navLink = { color: "rgba(244,239,230,.78)", textDecoration: "none", transition: "color .2s", fontWeight: 500 };
+const navLink = { color: "rgba(244,239,230,.75)", textDecoration: "none", transition: "color .2s", fontWeight: 500 };
+const langBtn = { background: "transparent", border: "none", fontFamily: "JetBrains Mono, monospace", fontSize: 11, letterSpacing: "0.1em", padding: "7px 13px", cursor: "pointer" };
 
-const KeenImpactLogo = ({ dark = false }) =>
-<div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+const KeenImpactLogo = ({ dark = false }) => (
+  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
     <img src="assets/keen-impact-logo.png" alt=""
-  style={{
-    height: 30,
-    filter: dark ? "brightness(0) invert(1)" : "none",
-    opacity: dark ? 0.92 : 1
-  }} />
-  
-  </div>;
+      style={{ height: 30, filter: dark ? "brightness(0) invert(1)" : "none", opacity: dark ? 0.92 : 1 }}
+    />
+  </div>
+);
 
+// ============ HERO — scroll-jacking ============
+// Estructura: outer div de 500vh actúa como "carril de scroll"
+// El header dentro es position:sticky — queda fijo mientras el usuario scrollea
+// progress [0..1] controla qué elementos son visibles
+//
+// Hero 1 (el antes): progress 0.00 → 0.42
+// Hero 2 (la solución): progress 0.38 → 1.00
+// Botones de Hero 2 aparecen a progress 0.75
+// Scroll normal se reanuda automáticamente al salir del carril (500vh)
+//
+// VIDEO: coloca el archivo en /assets/hero-video.mp4 o /uploads/hero-video.mp4
+// El poster (miniatura) ya está en uploads/
 
-// ============ HERO ============
+const HERO_SCROLL_HEIGHT = "500vh";
+
 const Hero = () => {
-  const [time, setTime] = React.useState("");
+  const outerRef = React.useRef(null);
+  const [progress, setProgress] = React.useState(0);
+
   React.useEffect(() => {
-    const update = () => {
-      const now = new Date();
-      const opts = { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" };
-      setTime(now.toLocaleTimeString("es-ES", opts));
+    const onScroll = () => {
+      if (!outerRef.current) return;
+      const { top, height } = outerRef.current.getBoundingClientRect();
+      const scrollable = height - window.innerHeight;
+      if (scrollable <= 0) return;
+      setProgress(Math.min(1, Math.max(0, -top / scrollable)));
     };
-    update();
-    const id = setInterval(update, 30000);
-    return () => clearInterval(id);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Devuelve estilos de animación para cada elemento según umbral de entrada
+  const anim = (enter, exit = null) => ({
+    opacity: progress < enter ? 0 : (exit !== null && progress > exit ? 0 : 1),
+    transform: `translateY(${progress < enter ? "22px" : "0px"})`,
+    transition: "opacity 0.65s ease, transform 0.65s ease",
+    willChange: "opacity, transform",
+  });
+
+  const h1Visible = progress < 0.42;
+  const h2Visible = progress >= 0.38;
+
   return (
-    <header className="grain" style={{
-      position: "relative",
-      background: "linear-gradient(180deg, #0E1A2B 0%, #142339 70%, #0E1A2B 100%)",
-      color: "var(--paper)",
-      overflow: "hidden",
-      paddingBottom: 0
-    }}>
-      <Nav />
-      {/* Top hairline tickers */}
-      <div style={{
-        position: "absolute", top: 84, left: 0, right: 0,
-        borderTop: "1px solid rgba(184,153,104,.18)",
-        borderBottom: "1px solid rgba(184,153,104,.18)",
-        padding: "10px 40px",
-        display: "flex", justifyContent: "space-between",
-        fontFamily: "JetBrains Mono, monospace", fontSize: 11,
-        letterSpacing: ".22em", textTransform: "uppercase",
-        color: "rgba(244,239,230,.55)",
-        zIndex: 5
-      }}>
-        <span>Bubión · Capileira · Pampaneira</span>
-        <span style={{ display: "flex", gap: 24 }}>
-          <span>1296 m · Sierra Nevada</span>
-          <span>·</span>
-          <span>{time} CET</span>
-          <span>·</span>
-          <span style={{ color: "var(--gold-2)" }}>Plazas fundador 5 / abierta</span>
-        </span>
-      </div>
+    <>
+      {/* ── CARRIL DE SCROLL ── */}
+      <div ref={outerRef} style={{ height: HERO_SCROLL_HEIGHT, position: "relative" }}>
 
-      <div className="container" style={{ paddingTop: 170, paddingBottom: 80, position: "relative", zIndex: 4 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.1fr .9fr", gap: 80, alignItems: "start" }} className="hero-grid">
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }}>
-              <DiamondOrnament size={16} />
-              <span className="eyebrow" style={{ color: "var(--gold-2)" }}>Para restauración del Barranco del Poqueira</span>
-            </div>
+        <header style={{
+          position: "sticky", top: 0, height: "100vh", overflow: "hidden",
+          color: "var(--paper)",
+        }} className="grain">
 
-            <h1 className="display" style={{
-              fontWeight: 350,
-              fontSize: "clamp(46px, 6.4vw, 96px)",
-              lineHeight: 0.98,
-              margin: 0,
-              letterSpacing: "-0.025em"
-            }}>
-              Tu negocio<br />
-              trabajando<br />
-              <span style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold-2)" }}>mientras descansas.</span>
-            </h1>
+          {/* ── VIDEO DE FONDO (compartido entre Hero 1 y Hero 2) ──
+              Reemplaza src con la ruta de tu vídeo.
+              El poster se usa como fallback mientras carga. */}
+          <video
+            autoPlay muted loop playsInline
+            poster="uploads/d3b80f74f54248e8a99628af444c6a61031c681862c64b67bfe3ede1ee04f0d0.jpg"
+            style={{
+              position: "absolute", inset: 0,
+              width: "100%", height: "100%",
+              objectFit: "cover", zIndex: 0,
+            }}
+          >
+            <source src="assets/hero-video.mp4" type="video/mp4" />
+            <source src="uploads/hero-video.mp4" type="video/mp4" />
+          </video>
 
-            <div style={{ maxWidth: 560, marginTop: 36 }}>
-              <p style={{ fontSize: 19, lineHeight: 1.55, color: "rgba(244,239,230,.78)", margin: 0, fontWeight: 300 }}>
-                El genio de la lámpara existe, y está disponible para ti. La operativa fácil y ágil que siempre soñaste: gestión casi automatizada, presencia digital de primera y un equipo de asistentes invisibles trabajando casi gratis para ti.
-                <span style={{ color: "var(--paper)" }}> Sin tecnicismos. Sin complicaciones.</span> Desde los primeros días.
-              </p>
-            </div>
+          {/* Overlay oscuro */}
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 1,
+            background: "linear-gradient(180deg, rgba(14,26,43,0.78) 0%, rgba(14,26,43,0.48) 50%, rgba(14,26,43,0.78) 100%)",
+          }} />
 
-            <div style={{ display: "flex", gap: 16, marginTop: 44, alignItems: "center", flexWrap: "wrap" }}>
-              <a href="#contacto" className="btn btn-gold">
-                Quiero saber más <ArrowRight size={16} stroke="var(--night)" />
-              </a>
-              <a href="#modulos" className="btn btn-ghost">
-                Ver los 7 módulos
-              </a>
-            </div>
-
-            {/* Stat strip */}
-            <div style={{
-              marginTop: 72,
-              display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0,
-              borderTop: "1px solid rgba(184,153,104,.25)",
-              borderBottom: "1px solid rgba(184,153,104,.25)"
-            }}>
-              {[
-              ["18+", "años diseñando sistemas"],
-              ["2 M€", "valor en productos creados"],
-              ["7 días", "para tu nueva web"],
-              ["−85%", "errores administrativos"]].
-              map(([n, l], i) =>
-              <div key={i} style={{
-                padding: "20px 20px 20px 0",
-                borderRight: i < 3 ? "1px solid rgba(184,153,104,.15)" : "none",
-                paddingLeft: i === 0 ? 0 : 20
-              }}>
-                  <div className="display" style={{ fontSize: 36, fontWeight: 350, color: "var(--gold-2)", lineHeight: 1, letterSpacing: "-0.02em" }}>{n}</div>
-                  <div style={{ fontSize: 11, marginTop: 8, color: "rgba(244,239,230,.55)", textTransform: "uppercase", letterSpacing: ".15em", fontFamily: "JetBrains Mono, monospace" }}>{l}</div>
-                </div>
-              )}
-            </div>
+          {/* Nav — siempre visible */}
+          <div style={{ position: "relative", zIndex: 10 }}>
+            <Nav />
           </div>
 
-          {/* Right column: portrait + ornament card */}
-          <div style={{ position: "relative" }}>
-            <div style={{
-              position: "relative",
-              border: "1px solid rgba(184,153,104,.35)",
-              padding: 24,
-              background: "rgba(20,35,57,.4)",
-              backdropFilter: "blur(2px)"
-            }}>
-              <div className="eyebrow" style={{ color: "var(--gold-2)", display: "flex", justifyContent: "space-between" }}>
-                <span>Dossier № 01</span>
-                <span>Bubión, 2026</span>
-              </div>
+          {/* ════════════════════════════════════════
+              HERO 1 — El peso del antes
+              Visible: progress 0.00 → 0.42
+              ════════════════════════════════════════ */}
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 2,
+            display: "flex", flexDirection: "column",
+            justifyContent: "center", alignItems: "center",
+            textAlign: "center", padding: "80px 40px 40px",
+            opacity: h1Visible ? 1 : 0,
+            transition: "opacity 0.55s ease",
+            pointerEvents: h1Visible ? "auto" : "none",
+          }}>
+            <div style={{ maxWidth: 820 }}>
+
+              {/* Eyebrow de localización */}
               <div style={{
-                marginTop: 20,
-                position: "relative",
-                aspectRatio: "5 / 6",
-                background: "linear-gradient(160deg, #1c2c44 0%, #0E1A2B 100%)",
-                overflow: "hidden"
+                ...anim(0.03),
+                fontFamily: "JetBrains Mono, monospace",
+                fontSize: 10, letterSpacing: "0.28em",
+                textTransform: "uppercase",
+                color: "rgba(244,239,230,0.45)",
+                marginBottom: 48,
               }}>
-                {/* Sun dial bg */}
-                <div style={{ position: "absolute", top: -40, right: -40, opacity: .35 }}>
-                  <SunDial size={300} />
-                </div>
-                {/* Ridge backdrop */}
-                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "55%" }}>
-                  <RidgeBackdrop />
-                </div>
-                <img src="assets/dan-guerrero.png" alt="Dan Guerrero" style={{
-                  position: "absolute", bottom: 0, right: -10, width: "115%", height: "auto", maxHeight: "100%",
-                  objectFit: "contain", objectPosition: "bottom right",
-                  filter: "drop-shadow(0 30px 60px rgba(0,0,0,.5))"
-                }} />
-                <div style={{ position: "absolute", top: 18, left: 18, display: "flex", alignItems: "center", gap: 8 }}>
-                  <span className="pill" style={{ color: "var(--paper)" }}>
-                    <span className="dot live" /> En el valle
-                  </span>
-                </div>
+                Bubión · Capileira · Pampaneira · Sierra Nevada
               </div>
-              <div style={{ marginTop: 18, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-                <div>
-                  <div style={{ fontFamily: "Instrument Serif, serif", fontSize: 26, fontStyle: "italic", letterSpacing: "-0.01em" }}>Dan Guerrero</div>
-                  <div className="eyebrow" style={{ color: "rgba(244,239,230,.55)", marginTop: 4 }}>Tu vecino, tu consultor</div>
-                </div>
-                <StarBurst size={18} color="var(--gold)" />
-              </div>
-            </div>
 
-            {/* Floating quote tag */}
-            <div style={{
-              position: "absolute",
-              bottom: -28, left: -28,
-              background: "var(--paper)", color: "var(--ink)",
-              padding: "14px 18px",
-              maxWidth: 240,
-              fontFamily: "Instrument Serif, serif",
-              fontStyle: "italic", fontSize: 17, lineHeight: 1.35,
-              border: "1px solid var(--hairline)",
-              boxShadow: "0 30px 60px -20px rgba(0,0,0,.5)"
-            }}>
-              <span style={{ color: "var(--gold-deep)" }}>“</span>Vengo en persona, escucho, observo y lo monto a tu medida.<span style={{ color: "var(--gold-deep)" }}>”</span>
+              {/* Línea de dolor 1 */}
+              <p style={{
+                ...anim(0.09),
+                fontFamily: "Instrument Serif, serif",
+                fontStyle: "italic",
+                fontSize: "clamp(20px, 2.8vw, 38px)",
+                lineHeight: 1.4, fontWeight: 300,
+                color: "rgba(244,239,230,0.70)",
+                margin: "0 0 16px",
+              }}>
+                El negocio funciona.
+              </p>
+
+              {/* Línea de dolor 2 */}
+              <p style={{
+                ...anim(0.16),
+                fontSize: "clamp(15px, 1.9vw, 24px)",
+                lineHeight: 1.65, fontWeight: 300,
+                color: "rgba(244,239,230,0.60)",
+                margin: "0 0 52px",
+              }}>
+                Pero a ti todavía te queda una montaña de trabajo<br />
+                y asuntos que resolver por delante.
+              </p>
+
+              {/* Separador */}
+              <div style={{
+                ...anim(0.23),
+                height: 1, width: 60,
+                background: "rgba(184,153,104,0.4)",
+                margin: "0 auto 52px",
+              }} />
+
+              {/* Titular principal */}
+              <h1 className="display" style={{
+                ...anim(0.28),
+                fontSize: "clamp(56px, 8.5vw, 126px)",
+                fontWeight: 300, fontStyle: "italic",
+                lineHeight: 0.93, letterSpacing: "-0.025em",
+                margin: 0, color: "var(--paper)",
+              }}>
+                Hasta que un día...
+              </h1>
+
+              {/* Indicador de scroll */}
+              <div style={{
+                ...anim(0.35),
+                marginTop: 68,
+                display: "flex", flexDirection: "column",
+                alignItems: "center", gap: 10,
+              }}>
+                <span style={{
+                  fontFamily: "JetBrains Mono, monospace",
+                  fontSize: 10, letterSpacing: "0.28em",
+                  textTransform: "uppercase",
+                  color: "rgba(244,239,230,0.35)",
+                }}>Sigue bajando</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <svg width="18" height="10" viewBox="0 0 18 10" fill="none"
+                    style={{ animation: "folgao-bounce 1.8s ease-in-out 0s infinite" }}>
+                    <path d="M1 1L9 9L17 1" stroke="var(--gold-2)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <svg width="18" height="10" viewBox="0 0 18 10" fill="none"
+                    style={{ animation: "folgao-bounce 1.8s ease-in-out 0.22s infinite" }}>
+                    <path d="M1 1L9 9L17 1" stroke="var(--gold-2)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Bottom ridge silhouette */}
-      <div style={{ position: "relative", height: 120, marginTop: -40 }}>
-        <RidgeBackdrop />
+          {/* ════════════════════════════════════════
+              HERO 2 — La solución
+              Visible: progress 0.38 → 1.00
+              Botones aparecen a 0.75 (todos los elementos listos)
+              ════════════════════════════════════════ */}
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 3,
+            display: "flex", flexDirection: "column",
+            justifyContent: "center", alignItems: "center",
+            textAlign: "center", padding: "80px 40px 40px",
+            opacity: h2Visible ? 1 : 0,
+            transition: "opacity 0.55s ease",
+            pointerEvents: h2Visible ? "auto" : "none",
+          }}>
+            <div style={{ maxWidth: 960 }}>
+
+              {/* Eyebrow con líneas laterales */}
+              <div style={{
+                ...anim(0.43),
+                display: "flex", alignItems: "center",
+                justifyContent: "center", gap: 18,
+                marginBottom: 36,
+              }}>
+                <span style={{ height: 1, width: 48, background: "rgba(184,153,104,0.45)" }} />
+                <span style={{
+                  fontFamily: "JetBrains Mono, monospace",
+                  fontSize: 10, letterSpacing: "0.28em",
+                  textTransform: "uppercase",
+                  color: "rgba(244,239,230,0.55)",
+                }}>A partir de ahora:</span>
+                <span style={{ height: 1, width: 48, background: "rgba(184,153,104,0.45)" }} />
+              </div>
+
+              {/* Titular línea 1 */}
+              <h1 className="display" style={{
+                ...anim(0.50),
+                fontSize: "clamp(56px, 7.8vw, 116px)",
+                fontWeight: 350, lineHeight: 0.94,
+                letterSpacing: "-0.025em",
+                margin: 0, color: "var(--paper)",
+              }}>
+                Tú terminas
+              </h1>
+
+              {/* Titular línea 2 — oro itálico */}
+              <h1 className="display" style={{
+                ...anim(0.57),
+                fontSize: "clamp(56px, 7.8vw, 116px)",
+                fontWeight: 300, fontStyle: "italic",
+                lineHeight: 0.94, letterSpacing: "-0.025em",
+                margin: "6px 0 0", color: "var(--gold-2)",
+              }}>
+                antes que nadie
+              </h1>
+
+              {/* Descripción */}
+              <p style={{
+                ...anim(0.63),
+                fontSize: "clamp(16px, 1.8vw, 22px)",
+                lineHeight: 1.65, color: "rgba(244,239,230,0.78)",
+                margin: "40px 0 0", fontWeight: 300,
+              }}>
+                Y te vas a tus cosas. A descansar.<br />
+                Tu negocio sigue funcionando, mejor que nunca.
+              </p>
+
+              {/* Caption */}
+              <p style={{
+                ...anim(0.69),
+                fontFamily: "JetBrains Mono, monospace",
+                fontSize: 10, letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "rgba(184,153,104,0.65)",
+                margin: "18px 0 0",
+                fontStyle: "italic",
+              }}>
+                Di adiós a las tareas mecánicas.&nbsp;&nbsp;
+                Las horas libres son mucho más reales.
+              </p>
+
+              {/* Botones CTA — aparecen últimos, a 0.75 */}
+              <div style={{
+                ...anim(0.75),
+                display: "flex", gap: 14,
+                justifyContent: "center",
+                marginTop: 52, flexWrap: "wrap",
+              }}>
+                <a href="#dolor" className="btn btn-gold" style={{ padding: "14px 28px", fontSize: 13, letterSpacing: "0.06em" }}>
+                  Quiero saber más ↓
+                </a>
+                <a href="#modulos" className="btn btn-ghost" style={{ padding: "14px 28px", fontSize: 13, letterSpacing: "0.06em" }}>
+                  Ver el piloto →
+                </a>
+              </div>
+
+            </div>
+          </div>
+
+        </header>
       </div>
+      {/* ── FIN CARRIL DE SCROLL ──
+          A partir de aquí el scroll normal se reanuda.
+          El marquee queda justo debajo del hero. */}
 
       {/* Marquee */}
       <div style={{
         borderTop: "1px solid rgba(184,153,104,.2)",
         borderBottom: "1px solid rgba(184,153,104,.2)",
         padding: "18px 0", overflow: "hidden",
-        background: "rgba(20,35,57,.4)"
+        background: "rgba(14,26,43,.96)",
       }}>
         <div className="marquee-track" style={{ color: "var(--gold-2)", fontFamily: "Fraunces, serif", fontStyle: "italic", fontSize: 22, fontWeight: 300 }}>
           {Array.from({ length: 2 }).map((_, k) =>
-          <React.Fragment key={k}>
+            <React.Fragment key={k}>
               <span>Reservas que se gestionan solas (y el cliente se siente atendido)</span><DiamondOrnament size={12} />
               <span>{"Contabilidad: < 30 minutos al trimestre"}</span><DiamondOrnament size={12} />
               <span>Stock en tiempo real</span><DiamondOrnament size={12} />
@@ -236,9 +350,10 @@ const Hero = () => {
           )}
         </div>
       </div>
-    </header>);
-
+    </>
+  );
 };
+
 
 // ============ SECTION 1 — Pain ============
 const PainSection = () =>
@@ -337,7 +452,6 @@ const ValueSection = () =>
           </p>
         </div>
 
-        {/* Team stack visual */}
         <div>
           <div style={{
           background: "var(--paper)",
@@ -446,7 +560,6 @@ const AboutSection = () =>
             }} />
             </div>
           </div>
-          {/* Signature card */}
           <div style={{
           position: "absolute", bottom: -32, right: -32,
           background: "var(--gold)", color: "var(--night)",
@@ -474,12 +587,9 @@ const AboutSection = () =>
             <p style={{ margin: 0 }}>
               Me llamo Dan y soy granaíno de nacimiento. Sobrino del pintor Manuel Maldonado, para ser más exactos. Llevo más de <strong style={{ color: "var(--paper)" }}>18 años</strong> diseñando sistemas digitales que resuelven problemas reales para negocios reales. He creado productos y servicios valorados en más de <strong style={{ color: "var(--paper)" }}>2 millones de euros</strong>. Y desde finales de 2025 vivo aquí arriba, en <strong style={{ color: "var(--gold-2)" }}>Bubión</strong>.
             </p>
-            <p style={{ margin: 0 }}>Mi propuesta: visitarte en persona. Te escucho, observo, y si te gusta mi propuesta, monto lo que necesites, a tu medida. Soy un tío de monte, y de resolver problemas. Entiendo el ritmo de aquí. Lo que ofreces, lo que piden los clientes. Yo solo facilito el puente.
-
-          </p>
+            <p style={{ margin: 0 }}>Mi propuesta: visitarte en persona. Te escucho, observo, y si te gusta mi propuesta, monto lo que necesites, a tu medida. Soy un tío de monte, y de resolver problemas. Entiendo el ritmo de aquí. Lo que ofreces, lo que piden los clientes. Yo solo facilito el puente.</p>
           </div>
 
-          {/* Pilot card */}
           <div style={{
           marginTop: 36,
           padding: "22px 26px",
@@ -498,7 +608,6 @@ const AboutSection = () =>
             </a>
           </div>
 
-          {/* Testimonios row */}
           <div style={{ marginTop: 36 }}>
             <div className="eyebrow" style={{ color: "var(--gold-2)", marginBottom: 14 }}>Testimonios</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
