@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Enjoy Poqueira — Keen Impact</title>
+<title>FolgaoRest — by Keen Impact</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=Inter:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -68,6 +68,12 @@
     display: inline-flex; gap: 56px; align-items: center;
     animation: marquee 50s linear infinite;
     white-space: nowrap;
+  }
+
+  /* Bounce — indicador de scroll en el hero */
+  @keyframes folgao-bounce {
+    0%, 100% { transform: translateY(0);  opacity: 0.38; }
+    50%       { transform: translateY(6px); opacity: 0.75; }
   }
 
   /* Reveal */
